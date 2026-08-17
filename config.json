@@ -1,0 +1,21 @@
+{
+  "port": 57873,
+  "sessionSecret": "pz-server-panel-secret-key-change-me",
+  "pzServer": {
+    "installPath": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\ProjectZomboid",
+    "serverName": "servertest",
+    "adminPassword": "changeme",
+    "rconPort": 27015,
+    "rconPassword": "changeme"
+  },
+  "backup": {
+    "enabled": true,
+    "interval": 360,
+    "maxBackups": 10,
+    "path": "backups"
+  },
+  "auth": {
+    "username": "admin",
+    "password": "admin123"
+  }
+}

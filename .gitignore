@@ -1,0 +1,10 @@
+node_modules/
+npm-debug.log*
+.env
+test_output.txt
+test_error.txt
+config_backups/
+backups/
+*.bak
+.DS_Store
+Thumbs.db
