@@ -102,6 +102,90 @@ module.exports = function(serverManager, checkSession) {
     });
 
     // Get player positions parsed from server logs
+    router.get('/api/server/stats', checkSession, (req, res) => {
+        try {
+            const status = serverManager.getStatus();
+            const logs = serverManager.getLogs(50);
+            const playerHistory = [];
+            for (const log of logs) {
+                const match = log.message.match(/(\d+)\s+players?\s+connected/i);
+                if (match) {
+                    playerHistory.push({ time: log.timestamp, count: parseInt(match[1]) });
+                }
+            }
+
+            // System info
+            const os = require('os');
+            const sysInfo = {
+                hostname: os.hostname(),
+                platform: os.platform(),
+                arch: os.arch(),
+                release: os.release(),
+                cpuModel: os.cpus().length > 0 ? os.cpus()[0].model.trim() : '',
+                cpuCores: os.cpus().length,
+                totalMem: os.totalmem(),
+                freeMem: os.freemem(),
+                uptime: os.uptime(),
+                nodeVersion: process.version
+            };
+
+            // PZ game version
+            let gameVersion = '未知';
+            const fs = require('fs');
+            const path = require('path');
+            const installPath = serverManager.config.installPath;
+            if (installPath && fs.existsSync(installPath)) {
+                // Check version.txt or similar
+                const versionFiles = ['version.txt', 'Version.txt', 'VERSION', 'media/version.txt'];
+                for (const vf of versionFiles) {
+                    const vp = path.join(installPath, vf);
+                    if (fs.existsSync(vp)) {
+                        try {
+                            const content = fs.readFileSync(vp, 'utf-8').trim();
+                            if (content) { gameVersion = content.split('\n')[0].trim(); break; }
+                        } catch (e) {}
+                    }
+                }
+                // If not found, check the exe version on Windows
+                if (gameVersion === '未知') {
+                    const exePath = path.join(installPath, 'ProjectZomboidServer.exe');
+                    if (fs.existsSync(exePath)) {
+                        try {
+                            const ver = require('child_process').execSync(
+                                `wmic datafile where name="${exePath.replace(/\\/g, '\\\\')}" get Version /value 2>nul`,
+                                { encoding: 'utf-8', timeout: 3000 }
+                            );
+                            const m = ver.match(/Version=([^\r\n]+)/);
+                            if (m) gameVersion = m[1].trim();
+                        } catch (e) {}
+                    }
+                }
+                // Check modinfo for build number
+                if (gameVersion === '未知') {
+                    const modInfoPath = path.join(installPath, 'media', 'mods', 'mod.info');
+                    if (fs.existsSync(modInfoPath)) {
+                        try {
+                            const content = fs.readFileSync(modInfoPath, 'utf-8');
+                            const m = content.match(/version\s*=\s*([^\r\n]+)/i);
+                            if (m) gameVersion = m[1].trim();
+                        } catch (e) {}
+                    }
+                }
+            }
+
+            res.json({
+                result: 1,
+                data: {
+                    status,
+                    playerHistory: playerHistory.slice(-20),
+                    system: sysInfo,
+                    gameVersion
+                }
+            });
+        } catch (err) {
+            res.json({ result: 0, message: err.message });
+        }
+    });
     router.get('/api/server/player-positions', checkSession, (req, res) => {
         try {
             const logs = serverManager.getLogs(1000);

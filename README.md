@@ -2,7 +2,7 @@
 
 **Project Zomboid 服务器管理面板** | 基于 Node.js + Express 的 Web 管理工具
 
-> 参考 [NaiwaziBot](https://github.com/)（7 Days to Die 服务器管理面板）的设计思路，为 Project Zomboid 打造的全功能服务器管理面板。
+> 参考 [NaiwaziBot](https://github.com/)（7 Days to Die 服务器管理面板）的设计思路，为 Project Zomboid 打造的全功能服务器管理面板。支持 Windows / Linux。
 
 ---
 
@@ -10,15 +10,15 @@
 
 | 模块 | 功能 |
 |------|------|
-| 📊 **仪表盘** | 服务器状态概览、在线玩家数、运行时间、快速操作 |
+| 📊 **仪表盘** | 服务器状态、在线玩家、运行时间、游戏版本、系统信息（CPU/内存/OS） |
 | 🖥 **服务器控制** | 启动/停止/重启服务器、交互式控制台、发送命令 |
 | 👥 **玩家管理** | 在线玩家列表、发送消息、踢出/封禁、保存世界 |
-| ⚙ **配置管理** | 浏览和编辑 `server.ini` 等配置文件，自动备份原文件 |
-| 🧩 **Mod 管理** | 显示本地/Steam 创意工坊 Mod，一键启用/禁用 |
-| 🌍 **地图** | Leaflet 地图 + PZ 社区瓦片 + 玩家位置追踪 |
+| ⚙ **配置管理** | 可视化配置编辑器（分类分组、中文说明、开关/下拉/数字/文本），支持切换到文本模式 |
+| 🧩 **Mod 管理** | 显示本地/Steam 创意工坊 Mod，一键启用/禁用，支持从创意工坊 URL 添加 Mod |
+| 🌍 **地图** | Leaflet 地图 + PZ 社区瓦片 + 玩家位置追踪（每 10 秒更新） |
 | 📝 **日志查看** | 实时日志流、历史日志文件浏览、关键词搜索 |
 | 💾 **备份管理** | 创建/恢复/删除存档备份，支持自动定时备份 |
-| 🔧 **系统设置** | 修改 PZ 路径、服务器名、RCON 配置、备份参数、账户密码 |
+| 🔧 **系统设置** | 自动搜索 PZ 安装路径、修改服务器路径、RCON 配置、备份参数、账户密码 |
 
 ---
 
@@ -28,23 +28,37 @@
 
 - [Node.js](https://nodejs.org/) >= 18.x
 - [Project Zomboid 服务器](https://pzwiki.net/wiki/Dedicated_Server) 已安装
+- 支持 Windows 和 Linux 系统
 
-### 安装
+### 安装（Windows）
 
 ```bash
-# 克隆仓库
-git clone https://github.com/yourusername/pz-server-panel.git
-cd pz-server-panel
-
-# 安装依赖
+git clone https://github.com/ytxuantian/Pz-Server-Panel.git
+cd Pz-Server-Panel
 npm install
-
-# 修改配置
-编辑 config.json 中的服务器路径和账号信息
-
-# 启动面板
 npm start
 ```
+
+### 安装（Linux）
+
+```bash
+git clone https://github.com/ytxuantian/Pz-Server-Panel.git
+cd Pz-Server-Panel
+npm install
+npm start
+```
+
+### 配置
+
+首次启动后，在浏览器打开管理面板，进入 **系统设置**，点击 **「🔍 自动搜索」** 按钮，面板会自动扫描所有磁盘查找 PZ 安装路径。也可手动编辑 `config.json`。
+
+### 访问
+
+打开浏览器访问 **http://127.0.0.1:57873**
+
+**默认登录：**
+- 用户名：`admin`
+- 密码：`admin123`
 
 ### 访问
 
@@ -62,7 +76,7 @@ npm start
 {
   "port": 57873,
   "pzServer": {
-    "installPath": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\ProjectZomboid",
+    "installPath": "",
     "serverName": "servertest",
     "adminPassword": "changeme",
     "rconPort": 27015,
@@ -138,8 +152,11 @@ npm start
 | GET | `/api/config/list` | 配置文件列表 |
 | GET | `/api/config/read` | 读取配置文件 |
 | POST | `/api/config/save` | 保存配置文件 |
+| GET | `/api/config/visual` | 获取可视化配置数据（含字段元数据） |
+| POST | `/api/config/visual/save` | 保存可视化配置 |
 | GET | `/api/config/settings` | 读取面板设置 |
 | POST | `/api/config/settings` | 保存面板设置 |
+| GET | `/api/config/detect-pz` | 自动搜索 PZ 安装路径（支持 Windows/Linux） |
 
 ### Mod 管理
 
@@ -148,6 +165,9 @@ npm start
 | GET | `/api/mods/list` | Mod 列表 |
 | POST | `/api/mods/enable` | 启用 Mod |
 | POST | `/api/mods/disable` | 禁用 Mod |
+| POST | `/api/mods/workshop/add` | 从创意工坊 URL/ID 添加 Mod |
+| POST | `/api/mods/workshop/remove` | 移除 Workshop Mod |
+| GET | `/api/mods/workshop/list` | 查看已配置的 Workshop Mod |
 
 ### 日志
 

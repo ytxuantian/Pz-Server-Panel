@@ -230,8 +230,14 @@ async function renderDashboard() {
         return;
     }
 
-    const { status, playerHistory } = data.data;
+    const { status, playerHistory, system, gameVersion } = data.data;
     const isRunning = status.running;
+
+    // Format memory
+    const formatMem = (bytes) => bytes ? (bytes / 1024 / 1024 / 1024).toFixed(1) + ' GB' : '-';
+    const memUsage = system ? ((1 - system.freeMem / system.totalMem) * 100).toFixed(0) : 0;
+    const platformMap = { 'win32': 'Windows', 'linux': 'Linux', 'darwin': 'macOS' };
+    const osName = system ? (platformMap[system.platform] || system.platform) + ' ' + system.arch : '-';
 
     content.innerHTML = `
         <div class="page-header">
@@ -250,6 +256,18 @@ async function renderDashboard() {
                 <div class="stat-info">
                     <div class="stat-label">服务器状态</div>
                     <div class="stat-value">${isRunning ? '运行中' : '已停止'}</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon ${isRunning ? 'success' : 'warning'}">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    </svg>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-label">服务器名</div>
+                    <div class="stat-value" style="font-size:1rem;">${status.serverName || 'servertest'}</div>
                 </div>
             </div>
 
@@ -277,16 +295,53 @@ async function renderDashboard() {
                     <div class="stat-value">${isRunning ? formatUptime(status.uptime) : '-'}</div>
                 </div>
             </div>
+        </div>
 
+        <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
             <div class="stat-card">
-                <div class="stat-icon ${isRunning ? 'success' : 'warning'}">
+                <div class="stat-icon info">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="4" y="4" width="16" height="16" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/>
+                    </svg>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-label">游戏版本</div>
+                    <div class="stat-value" style="font-size:1.1rem;">${gameVersion || '未知'}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon warning">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                        <circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/>
+                    </svg>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-label">操作系统</div>
+                    <div class="stat-value" style="font-size:0.9rem;">${osName}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon primary">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 6v6l4 2"/>
+                    </svg>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-label">CPU</div>
+                    <div class="stat-value" style="font-size:0.9rem;">${system ? system.cpuCores + ' 核' : '-'}</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon success">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
                     </svg>
                 </div>
                 <div class="stat-info">
-                    <div class="stat-label">服务器名</div>
-                    <div class="stat-value" style="font-size:1rem;">${status.serverName || 'servertest'}</div>
+                    <div class="stat-label">内存使用</div>
+                    <div class="stat-value" style="font-size:1rem;">${formatMem(system ? system.totalMem - system.freeMem : 0)} / ${formatMem(system ? system.totalMem : 0)}</div>
+                    <div class="progress-bar" style="margin-top:6px;"><div class="progress-fill ${memUsage > 80 ? 'danger' : memUsage > 60 ? 'warning' : 'success'}" style="width:${memUsage}%;"></div></div>
                 </div>
             </div>
         </div>
@@ -307,42 +362,6 @@ async function renderDashboard() {
                     <button class="btn btn-secondary" onclick="navigateTo('players')">查看玩家</button>
                     <button class="btn btn-secondary" onclick="navigateTo('logs')">查看日志</button>
                 </div>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header">
-                <h3>近期玩家活动</h3>
-            </div>
-            <div class="card-body">
-                ${playerHistory && playerHistory.length > 0 ? `
-                    <div class="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>时间</th>
-                                    <th>在线人数</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${playerHistory.map(p => `
-                                    <tr>
-                                        <td>${new Date(p.time).toLocaleTimeString()}</td>
-                                        <td><span class="badge badge-info">${p.count} 人</span></td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                ` : `
-                    <div class="empty-state">
-                        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                        </svg>
-                        <h3>暂无玩家活动数据</h3>
-                        <p>服务器启动后将显示玩家活动记录</p>
-                    </div>
-                `}
             </div>
         </div>
     `;
@@ -720,12 +739,12 @@ async function renderConfig() {
                 ${files.length > 0 ? `
                     <ul class="file-list">
                         ${files.map(f => `
-                            <li onclick="loadConfigFile('${f.name}')">
+                            <li onclick="loadVisualConfig('${f.name}')">
                                 <div>
                                     <div class="file-name">${f.name}</div>
                                     <div class="file-meta">${formatSize(f.size)} | ${new Date(f.modified).toLocaleString()}</div>
                                 </div>
-                                <span class="badge badge-info">点击编辑</span>
+                                <span class="badge badge-info">可视化编辑</span>
                             </li>
                         `).join('')}
                     </ul>
@@ -738,10 +757,13 @@ async function renderConfig() {
             </div>
         </div>
 
+        <div id="visualConfigContainer"></div>
+
         <div class="card" id="configEditorCard" style="display:none;">
             <div class="card-header">
                 <h3 id="configFileName">编辑文件</h3>
                 <div>
+                    <button class="btn btn-secondary btn-sm" onclick="switchToVisual()">切换到可视化</button>
                     <button class="btn btn-success btn-sm" onclick="saveConfigFile()">保存</button>
                 </div>
             </div>
@@ -753,13 +775,155 @@ async function renderConfig() {
 }
 
 let currentConfigFile = null;
+let currentVisualConfig = [];
+
+async function loadVisualConfig(filename) {
+    currentConfigFile = filename;
+    const container = document.getElementById('visualConfigContainer');
+    container.innerHTML = '<div class="page-loading" style="padding:40px;"><svg class="spinner" viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round"/></svg><span>加载配置...</span></div>';
+
+    const data = await API.get(`/api/config/visual?filename=${filename}`);
+    if (data.result !== 1) {
+        // Fallback to raw editor
+        showToast('无法加载可视化配置，切换到文本模式', 'warning');
+        loadConfigFile(filename);
+        return;
+    }
+
+    const { categories, raw } = data.data;
+    currentVisualConfig = [];
+
+    let html = '';
+    const categoryOrder = ['基本设置', '网络设置', '游戏设置', '僵尸设置', '战利品设置', 'PVP 设置', '经济设置', '管理设置', '其他'];
+
+    for (const cat of categoryOrder) {
+        if (!categories[cat] || categories[cat].length === 0) continue;
+        html += `
+            <div class="card">
+                <div class="card-header">
+                    <h3>${cat}</h3>
+                    <span class="badge badge-info">${categories[cat].length} 项</span>
+                </div>
+                <div class="card-body">
+                    <div class="visual-config-grid">`;
+
+        for (const field of categories[cat]) {
+            const m = field.meta;
+            const val = field.value;
+            const inputId = `cfg_${field.key}`;
+            currentVisualConfig.push(field);
+
+            html += `<div class="config-field" style="margin-bottom:12px;${field.notInFile ? 'opacity:0.5;' : ''}">
+                <label for="${inputId}" style="display:block;margin-bottom:4px;font-size:0.85rem;font-weight:500;color:var(--text-primary);">
+                    ${m.label || field.key}
+                    ${field.notInFile ? '<span class="badge badge-warning" style="font-size:0.6rem;">未配置</span>' : ''}
+                </label>
+                ${m.desc ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:6px;">${m.desc}</div>` : ''}
+                ${renderConfigField(inputId, m, val, field.key)}
+            </div>`;
+        }
+
+        html += `</div></div></div>`;
+    }
+
+    // Add remaining categories not in the predefined order
+    for (const [cat, fields] of Object.entries(categories)) {
+        if (categoryOrder.includes(cat)) continue;
+        html += `<div class="card"><div class="card-header"><h3>${cat}</h3></div><div class="card-body">`;
+        for (const field of fields) {
+            const m = field.meta;
+            const inputId = `cfg_${field.key}`;
+            html += `<div class="config-field" style="margin-bottom:12px;">
+                <label for="${inputId}" style="display:block;margin-bottom:4px;font-size:0.85rem;font-weight:500;">${m.label || field.key}</label>
+                ${m.desc ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:6px;">${m.desc}</div>` : ''}
+                ${renderConfigField(inputId, m, field.value, field.key)}
+            </div>`;
+        }
+        html += `</div></div>`;
+    }
+
+    html += `
+        <div style="display:flex;gap:10px;margin-bottom:24px;">
+            <button class="btn btn-success" onclick="saveVisualConfig()">保存所有设置</button>
+            <button class="btn btn-secondary" onclick="switchToRawEditor()">切换到文本编辑</button>
+        </div>
+    `;
+
+    container.innerHTML = html;
+    container.scrollIntoView({ behavior: 'smooth' });
+}
+
+function renderConfigField(inputId, meta, value, key) {
+    const val = value || '';
+    switch (meta.type) {
+        case 'toggle':
+            return `<label class="toggle-switch">
+                <input type="checkbox" id="${inputId}" ${val === 'true' ? 'checked' : ''}>
+                <span class="toggle-slider"></span>
+            </label>`;
+        case 'number':
+            const min = meta.min !== undefined ? `min="${meta.min}"` : '';
+            const max = meta.max !== undefined ? `max="${meta.max}"` : '';
+            const step = meta.step !== undefined ? `step="${meta.step}"` : '';
+            return `<input type="number" id="${inputId}" value="${val}" ${min} ${max} ${step} style="width:120px;padding:8px 12px;background:rgba(0,0,0,0.15);border:1px solid var(--glass-border);border-radius:6px;color:var(--text-primary);font-size:0.85rem;outline:none;">`;
+        case 'select':
+            return `<select id="${inputId}" style="width:auto;min-width:150px;padding:8px 12px;background:rgba(0,0,0,0.15);border:1px solid var(--glass-border);border-radius:6px;color:var(--text-primary);font-size:0.85rem;outline:none;">
+                ${meta.options.map(o => `<option value="${o.value}" ${val === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
+            </select>`;
+        case 'textarea':
+            return `<textarea id="${inputId}" style="width:100%;min-height:60px;padding:8px 12px;background:rgba(0,0,0,0.15);border:1px solid var(--glass-border);border-radius:6px;color:var(--text-primary);font-size:0.85rem;outline:none;resize:vertical;font-family:inherit;">${escapeHtml(val)}</textarea>`;
+        case 'password':
+            return `<input type="password" id="${inputId}" value="${escapeHtml(val)}" style="width:100%;max-width:300px;padding:8px 12px;background:rgba(0,0,0,0.15);border:1px solid var(--glass-border);border-radius:6px;color:var(--text-primary);font-size:0.85rem;outline:none;">`;
+        default:
+            return `<input type="text" id="${inputId}" value="${escapeHtml(val)}" style="width:100%;max-width:400px;padding:8px 12px;background:rgba(0,0,0,0.15);border:1px solid var(--glass-border);border-radius:6px;color:var(--text-primary);font-size:0.85rem;outline:none;">`;
+    }
+}
+
+async function saveVisualConfig() {
+    const settings = [];
+    for (const field of currentVisualConfig) {
+        const input = document.getElementById(`cfg_${field.key}`);
+        if (!input) continue;
+        let value;
+        if (field.meta.type === 'toggle') {
+            value = input.checked ? 'true' : 'false';
+        } else {
+            value = input.value;
+        }
+        settings.push({ key: field.key, value });
+    }
+
+    const data = await API.post('/api/config/visual/save', {
+        filename: currentConfigFile,
+        settings
+    });
+
+    if (data.result === 1) {
+        showToast('配置已保存', 'success');
+        loadVisualConfig(currentConfigFile);
+    } else {
+        showToast(data.message || '保存失败', 'error');
+    }
+}
+
+function switchToRawEditor() {
+    if (!currentConfigFile) return;
+    loadConfigFile(currentConfigFile);
+    document.getElementById('configEditorCard').style.display = 'block';
+}
+
+function switchToVisual() {
+    if (!currentConfigFile) return;
+    document.getElementById('configEditorCard').style.display = 'none';
+    loadVisualConfig(currentConfigFile);
+}
 
 async function loadConfigFile(filename) {
     currentConfigFile = filename;
     const data = await API.get(`/api/config/read?filename=${filename}`);
     
     if (data.result === 1) {
-        document.getElementById('configFileName').textContent = `编辑: ${filename}`;
+        document.getElementById('configFileName').textContent = `编辑: ${filename}（文本模式）`;
         document.getElementById('configEditor').value = data.data.content;
         document.getElementById('configEditorCard').style.display = 'block';
         document.getElementById('configEditorCard').scrollIntoView({ behavior: 'smooth' });
@@ -801,6 +965,20 @@ async function renderMods() {
             ⚠ 启用/禁用 Mod 后需重启服务器才能生效。已启用: ${enabledCount}/${mods.length}
         </div>
 
+        <div class="card">
+            <div class="card-header">
+                <h3>从 Steam 创意工坊添加 Mod</h3>
+            </div>
+            <div class="card-body">
+                <div class="inline-form">
+                    <input type="text" id="workshopUrl" placeholder="创意工坊 URL 或 Mod ID（如 1234567890）" style="flex:1;min-width:200px;">
+                    <button class="btn btn-primary btn-sm" onclick="addWorkshopMod()">添加</button>
+                    <button class="btn btn-sm btn-secondary" onclick="refreshWorkshopList()">查看已安装</button>
+                </div>
+                <div id="workshopResult" style="margin-top:8px;display:none;"></div>
+            </div>
+        </div>
+
         <div class="toolbar">
             <div class="search-box">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
@@ -837,7 +1015,7 @@ async function renderMods() {
             `).join('') : `
                 <div class="empty-state" style="grid-column:1/-1;">
                     <h3>未找到 Mod</h3>
-                    <p>请确保 Mod 已正确安装</p>
+                    <p>请确保 Mod 已正确安装，或通过上方创意工坊添加</p>
                 </div>
             `}
         </div>
@@ -874,6 +1052,81 @@ async function toggleMod(modId, enabled) {
         showToast(data.message || '操作失败', 'error');
         // Revert toggle
         renderMods();
+    }
+}
+
+async function addWorkshopMod() {
+    const input = document.getElementById('workshopUrl');
+    const resultDiv = document.getElementById('workshopResult');
+    const url = input.value.trim();
+    if (!url) { showToast('请输入创意工坊 URL 或 Mod ID', 'warning'); return; }
+
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<div class="alert alert-info">正在添加...</div>';
+
+    const data = await API.post('/api/mods/workshop/add', { url });
+    if (data.result === 1) {
+        resultDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+        input.value = '';
+        renderMods();
+    } else {
+        resultDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+    }
+}
+
+async function refreshWorkshopList() {
+    const resultDiv = document.getElementById('workshopResult');
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<div class="alert alert-info">正在获取...</div>';
+
+    const data = await API.get('/api/mods/workshop/list');
+    if (data.result !== 1) {
+        resultDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+        return;
+    }
+
+    const { configuredInServer, installed, workshopPath } = data.data;
+    let html = '<div class="card" style="margin:0;"><div class="card-header"><h3>已配置的 Workshop Mod</h3></div><div class="card-body" style="padding:0;">';
+
+    if (configuredInServer.length > 0) {
+        html += '<ul class="file-list">';
+        for (const id of configuredInServer) {
+            const isInstalled = installed.find(i => i.id === id);
+            html += `<li>
+                <div>
+                    <div class="file-name">Steam Workshop ID: ${id}</div>
+                    <div class="file-meta">${isInstalled ? '已下载' : '未下载（需在 Steam 中订阅）'}</div>
+                </div>
+                <button class="btn btn-sm btn-danger" onclick="removeWorkshopMod('${id}')">移除</button>
+            </li>`;
+        }
+        html += '</ul>';
+    } else {
+        html += '<div class="empty-state" style="padding:30px;"><h3>未配置 Workshop Mod</h3></div>';
+    }
+    html += '</div></div>';
+
+    if (installed.length > 0) {
+        html += '<div class="card" style="margin:8px 0 0;"><div class="card-header"><h3>已下载的 Mod 文件</h3></div><div class="card-body" style="padding:0;"><ul class="file-list">';
+        for (const item of installed) {
+            html += `<li><div><div class="file-name">${item.id}</div><div class="file-meta">${item.inConfig ? '已在配置中' : '未在配置中'}</div></div></li>`;
+        }
+        html += '</ul></div></div>';
+    }
+
+    html += `<div class="alert alert-info" style="margin-top:8px;">Workshop 路径: ${workshopPath}</div>`;
+    resultDiv.innerHTML = html;
+}
+
+async function removeWorkshopMod(id) {
+    if (!confirm(`确定要从服务器配置中移除 Workshop Mod [${id}] 吗？`)) return;
+    const data = await API.post('/api/mods/workshop/remove', { workshopId: id });
+    if (data.result === 1) {
+        showToast(data.message, 'success');
+        refreshWorkshopList();
+        renderMods();
+    } else {
+        showToast(data.message || '移除失败', 'error');
     }
 }
 
@@ -1325,7 +1578,11 @@ async function renderSettings() {
                 </div>
                 <div class="form-group">
                     <label>PZ 安装路径</label>
-                    <input type="text" id="setting_installPath" value="${escapeHtml(settings.pzServer?.installPath || '')}">
+                    <div style="display:flex;gap:8px;">
+                        <input type="text" id="setting_installPath" value="${escapeHtml(settings.pzServer?.installPath || '')}" style="flex:1;">
+                        <button class="btn btn-sm btn-info" onclick="detectPzPath()" style="white-space:nowrap;">🔍 自动搜索</button>
+                    </div>
+                    <div id="detectResult" style="margin-top:8px;display:none;"></div>
                 </div>
                 <div class="form-group">
                     <label>服务器名</label>
@@ -1423,6 +1680,74 @@ async function saveSettings() {
     } else {
         showToast(data.message || '保存失败', 'error');
     }
+}
+
+async function detectPzPath() {
+    const btn = event?.target;
+    const resultDiv = document.getElementById('detectResult');
+    if (!resultDiv) return;
+
+    btn.disabled = true;
+    btn.textContent = '⏳ 搜索中...';
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<div class="alert alert-info">正在扫描所有磁盘的 Steam 库，请稍候...</div>';
+
+    const data = await API.get('/api/config/detect-pz');
+
+    btn.disabled = false;
+    btn.textContent = '🔍 自动搜索';
+
+    if (data.result !== 1) {
+        resultDiv.innerHTML = `<div class="alert alert-danger">搜索失败: ${data.message}</div>`;
+        return;
+    }
+
+    const { found, paths } = data.data;
+
+    if (!found || paths.length === 0) {
+        resultDiv.innerHTML = `
+            <div class="alert alert-warning">
+                未找到 Project Zomboid 安装路径。请确保：
+                <br>1. Steam 已安装 PZ 服务器
+                <br>2. 已在 Steam 中至少运行过一次 PZ 服务器
+                <br>3. 或手动输入路径
+            </div>
+        `;
+        return;
+    }
+
+    let html = '<div class="alert alert-success">找到以下 PZ 安装路径：</div><div class="backup-list" style="margin-top:8px;">';
+    for (const p of paths) {
+        const isCurrent = p.path === document.getElementById('setting_installPath')?.value;
+        html += `
+            <div class="backup-item" style="cursor:pointer;${isCurrent ? 'border-color:var(--primary);' : ''}" onclick="selectDetectedPath('${escapeHtml(p.path)}', this)">
+                <div class="backup-info">
+                    <div class="backup-name">${escapeHtml(p.path)}</div>
+                    <div class="backup-meta">${escapeHtml(p.source)} ${isCurrent ? '✓ 当前使用' : ''}</div>
+                </div>
+                <button class="btn btn-sm ${isCurrent ? 'btn-success' : 'btn-primary'}">${isCurrent ? '已选择' : '选用'}</button>
+            </div>
+        `;
+    }
+    html += '</div>';
+    resultDiv.innerHTML = html;
+}
+
+function selectDetectedPath(path, el) {
+    document.getElementById('setting_installPath').value = path;
+    // Highlight selected
+    const items = document.querySelectorAll('#detectResult .backup-item');
+    items.forEach(item => {
+        item.style.borderColor = '';
+        const btn = item.querySelector('button');
+        if (btn) { btn.className = 'btn btn-sm btn-primary'; btn.textContent = '选用'; }
+    });
+    if (el) {
+        el.style.borderColor = 'var(--primary)';
+        const btn = el.querySelector('button');
+        if (btn) { btn.className = 'btn btn-sm btn-success'; btn.textContent = '已选择'; }
+    }
+    showToast('已选择路径，点击"保存设置"生效', 'success');
 }
 
 // ============================================

@@ -27,29 +27,41 @@ class ServerManager {
 
     getServerExe() {
         const isWindows = process.platform === 'win32';
+        const installPath = this.config.installPath;
         if (isWindows) {
-            const exePath = path.join(this.config.installPath, 'ProjectZomboidServer.exe');
-            const altPath = path.join(this.config.installPath, 'ProjectZomboid64.exe');
+            const exePath = path.join(installPath, 'ProjectZomboidServer.exe');
+            const altPath = path.join(installPath, 'ProjectZomboid64.exe');
             if (fs.existsSync(exePath)) return exePath;
             if (fs.existsSync(altPath)) return altPath;
-            return path.join(this.config.installPath, 'ProjectZomboidServer.exe');
+            return path.join(installPath, 'ProjectZomboidServer.exe');
         }
-        return path.join(this.config.installPath, 'start-server.sh');
+        // Linux: check for the server binary, fallback to start script
+        const linuxExe = path.join(installPath, 'ProjectZomboidServer');
+        const linux64 = path.join(installPath, 'ProjectZomboid64');
+        if (fs.existsSync(linuxExe)) return linuxExe;
+        if (fs.existsSync(linux64)) return linux64;
+        // Common Linux PZ dedi server naming
+        const linuxDedi = path.join(installPath, 'start-server.sh');
+        if (fs.existsSync(linuxDedi)) return linuxDedi;
+        return path.join(installPath, 'ProjectZomboidServer');
     }
 
     getStartScript() {
         const isWindows = process.platform === 'win32';
-        const serverName = this.config.serverName || 'servertest';
+        const installPath = this.config.installPath;
         if (isWindows) {
-            const scriptPath = path.join(this.config.installPath, 'start-server.bat');
-            const altScript = path.join(this.config.installPath, 'start-server64.bat');
+            const scriptPath = path.join(installPath, 'start-server.bat');
+            const altScript = path.join(installPath, 'start-server64.bat');
             if (fs.existsSync(altScript)) return altScript;
             if (fs.existsSync(scriptPath)) return scriptPath;
-            // Generate start command manually
             return null;
         }
-        const scriptPath = path.join(this.config.installPath, 'start-server.sh');
+        // Linux: check for start-server.sh
+        const scriptPath = path.join(installPath, 'start-server.sh');
         if (fs.existsSync(scriptPath)) return scriptPath;
+        // Check for the dedicated server shell script
+        const linuxScript = path.join(installPath, 'ProjectZomboidServer');
+        if (fs.existsSync(linuxScript)) return linuxScript;
         return null;
     }
 
@@ -83,24 +95,30 @@ class ServerManager {
                 const startScript = this.getStartScript();
 
                 if (startScript && fs.existsSync(startScript)) {
-                    // Use the start script
-                    cmd = isWindows ? startScript : 'bash';
-                    args = isWindows ? [] : [startScript];
+                    if (isWindows) {
+                        cmd = startScript;
+                        args = [];
+                    } else {
+                        // On Linux, make the script executable first
+                        try {
+                            execSync(`chmod +x "${startScript}" 2>/dev/null`);
+                        } catch (e) { /* ignore */ }
+                        cmd = 'bash';
+                        args = [startScript];
+                    }
                 } else {
                     // Construct command manually
                     const exePath = this.getServerExe();
-                    if (isWindows) {
-                        cmd = exePath;
-                        args = [
-                            '-servername', serverName,
-                            '-adminpassword', adminPassword
-                        ];
-                    } else {
-                        cmd = exePath;
-                        args = [
-                            '-servername', serverName,
-                            '-adminpassword', adminPassword
-                        ];
+                    cmd = exePath;
+                    args = [
+                        '-servername', serverName,
+                        '-adminpassword', adminPassword
+                    ];
+                    if (!isWindows) {
+                        // On Linux, ensure the binary is executable
+                        try {
+                            execSync(`chmod +x "${exePath}" 2>/dev/null`);
+                        } catch (e) { /* ignore */ }
                     }
                 }
 
@@ -187,12 +205,14 @@ class ServerManager {
             try {
                 const isWindows = process.platform === 'win32';
                 
-                // Send "quit" command to the server console
-                if (isWindows) {
-                    // On Windows, we can write to stdin
+                // Send "quit" command to the server console (works on both platforms)
+                try {
                     this.process.stdin.write('quit\n');
-                } else {
-                    this.process.kill('SIGTERM');
+                } catch (e) {
+                    // If stdin write fails, use signal
+                    if (!isWindows) {
+                        this.process.kill('SIGTERM');
+                    }
                 }
 
                 // Force kill after timeout
@@ -200,10 +220,15 @@ class ServerManager {
                     if (this.running && this.process) {
                         console.log('[ServerManager] 强制终止服务器进程');
                         this._addLog('[SYSTEM] 强制终止服务器进程');
+                        const pid = this.process.pid;
                         if (isWindows) {
-                            execSync(`taskkill /PID ${this.process.pid} /F /T 2>nul`);
+                            try { execSync(`taskkill /PID ${pid} /F /T 2>nul`); } catch (e) {}
                         } else {
-                            this.process.kill('SIGKILL');
+                            try {
+                                execSync(`kill -9 ${pid} 2>/dev/null`);
+                                // Also kill any child processes
+                                execSync(`pkill -P ${pid} 2>/dev/null`);
+                            } catch (e) {}
                         }
                     }
                 }, 30000);
@@ -338,11 +363,30 @@ class ServerManager {
 
     getMods() {
         const modsDir = path.join(this.config.installPath, 'mods');
-        const workshopDir = path.join(
-            this.config.installPath.replace('ProjectZomboid', 'workshop'),
-            'content',
-            '108600'
-        );
+        const isWindows = process.platform === 'win32';
+        let workshopDir;
+        if (isWindows) {
+            workshopDir = path.join(
+                this.config.installPath.replace('ProjectZomboid', 'workshop'),
+                'content',
+                '108600'
+            );
+        } else {
+            // Linux: workshop content is typically in ~/.steam/steam/steamapps/workshop/content/108600
+            const steamPath = path.join(require('os').homedir(), '.steam', 'steam');
+            workshopDir = path.join(steamPath, 'steamapps', 'workshop', 'content', '108600');
+            // Also check common alternative paths
+            const altPaths = [
+                path.join(require('os').homedir(), 'Steam', 'steamapps', 'workshop', 'content', '108600'),
+                path.join(require('os').homedir(), '.local', 'share', 'Steam', 'steamapps', 'workshop', 'content', '108600'),
+            ];
+            for (const alt of altPaths) {
+                if (fs.existsSync(alt)) {
+                    workshopDir = alt;
+                    break;
+                }
+            }
+        }
 
         const mods = [];
 
@@ -398,7 +442,7 @@ class ServerManager {
         return mods;
     }
 
-    setModsEnabled(modIds, enabled) {
+    setModsEnabled(modIds, enabled, isWorkshop = false) {
         const serverName = this.config.serverName || 'servertest';
         const configPath = path.join(
             this.config.installPath,
@@ -414,10 +458,11 @@ class ServerManager {
         let content = fs.readFileSync(configPath, 'utf-8');
         const lines = content.split('\n');
         let newLines = [];
-        let inMods = false;
+        let hasModsLine = false;
+        let hasWorkshopLine = false;
 
         for (const line of lines) {
-            if (line.trim().toLowerCase().startsWith('mods=')) {
+            if (line.trim().toLowerCase().startsWith('mods=') && !isWorkshop) {
                 const currentMods = line.split('=')[1]?.trim() || '';
                 const currentList = currentMods ? currentMods.split(';') : [];
                 let newList = [...currentList];
@@ -431,6 +476,7 @@ class ServerManager {
                 }
 
                 newLines.push(`Mods=${newList.join(';')}`);
+                hasModsLine = true;
             } else if (line.trim().toLowerCase().startsWith('workshopitems=')) {
                 const currentMods = line.split('=')[1]?.trim() || '';
                 const currentList = currentMods ? currentMods.split(';') : [];
@@ -445,9 +491,18 @@ class ServerManager {
                 }
 
                 newLines.push(`WorkshopItems=${newList.join(';')}`);
+                hasWorkshopLine = true;
             } else {
                 newLines.push(line);
             }
+        }
+
+        // If the config line didn't exist, add it
+        if (!hasModsLine && !isWorkshop) {
+            newLines.push(`Mods=${modIds.filter(id => enabled).join(';')}`);
+        }
+        if (!hasWorkshopLine) {
+            newLines.push(`WorkshopItems=${modIds.filter(id => enabled).join(';')}`);
         }
 
         // Backup and write

@@ -2,7 +2,7 @@
   "port": 57873,
   "sessionSecret": "pz-server-panel-secret-key-change-me",
   "pzServer": {
-    "installPath": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\ProjectZomboid",
+    "installPath": "",
     "serverName": "servertest",
     "adminPassword": "changeme",
     "rconPort": 27015,
