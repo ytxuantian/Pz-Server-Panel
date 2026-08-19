@@ -40,6 +40,7 @@ app.use('/', require('./routes/config')(serverManager, checkSession));
 app.use('/', require('./routes/mods')(serverManager, checkSession));
 app.use('/', require('./routes/logs')(serverManager, checkSession));
 app.use('/', require('./routes/backups')(backupManager, serverManager, checkSession));
+app.use('/', require('./routes/files')(serverManager, checkSession));
 
 // Serve frontend pages
 app.get('/login', (req, res) => {

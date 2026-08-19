@@ -12,13 +12,14 @@
 |------|------|
 | 📊 **仪表盘** | 服务器状态、在线玩家、运行时间、游戏版本、系统信息（CPU/内存/OS） |
 | 🖥 **服务器控制** | 启动/停止/重启服务器、交互式控制台、发送命令 |
-| 👥 **玩家管理** | 在线玩家列表、发送消息、踢出/封禁、保存世界 |
-| ⚙ **配置管理** | 可视化配置编辑器（分类分组、中文说明、开关/下拉/数字/文本），支持切换到文本模式 |
+| 👥 **玩家管理** | 在线玩家列表、发送消息、踢出/封禁、保存世界、给予物品 |
+| 📁 **文件管理** | 浏览 PZ 安装目录、面包屑导航、文本查看/编辑（自动备份）、上传/下载、删除、新建文件夹 |
+| ⚙ **配置管理** | 可视化配置编辑器（分类分组折叠、关键词搜索、修改跟踪/重置、中文说明、开关/下拉/数字/文本），支持切换到文本模式 |
 | 🧩 **Mod 管理** | 显示本地/Steam 创意工坊 Mod，一键启用/禁用，支持从创意工坊 URL 添加 Mod |
 | 🌍 **地图** | Leaflet 地图 + PZ 社区瓦片 + 玩家位置追踪（每 10 秒更新） |
-| 📝 **日志查看** | 实时日志流、历史日志文件浏览、关键词搜索 |
+| 📝 **日志查看** | 历史日志文件浏览、在线查看（自适应弹窗、级别着色） |
 | 💾 **备份管理** | 创建/恢复/删除存档备份，支持自动定时备份 |
-| 🔧 **系统设置** | 自动搜索 PZ 安装路径、修改服务器路径、RCON 配置、备份参数、账户密码 |
+| 🔧 **系统设置** | 自动搜索 PZ 安装路径（多镜像下载 SteamCMD 自动安装）、保存路径、RCON 配置、备份参数、账户密码 |
 
 ---
 
@@ -51,14 +52,6 @@ npm start
 ### 配置
 
 首次启动后，在浏览器打开管理面板，进入 **系统设置**，点击 **「🔍 自动搜索」** 按钮，面板会自动扫描所有磁盘查找 PZ 安装路径。也可手动编辑 `config.json`。
-
-### 访问
-
-打开浏览器访问 **http://127.0.0.1:57873**
-
-**默认登录：**
-- 用户名：`admin`
-- 密码：`admin123`
 
 ### 访问
 
@@ -189,6 +182,26 @@ npm start
 | POST | `/api/backups/delete` | 删除备份 |
 | POST | `/api/backups/auto` | 切换自动备份 |
 
+### 文件管理
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/files/list` | 列出目录内容（仅限 PZ 安装目录内，含路径穿越防护） |
+| GET | `/api/files/read` | 读取文本文件（>2MB 提示下载） |
+| POST | `/api/files/save` | 保存文本文件（自动备份到 config_backups/） |
+| POST | `/api/files/delete` | 删除文件/目录（递归） |
+| POST | `/api/files/mkdir` | 新建文件夹 |
+| POST | `/api/files/upload` | 上传文件（原始字节流） |
+| GET | `/api/files/download` | 下载文件 |
+
+### 游戏安装
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/config/detect-pz` | 自动搜索 PZ 安装路径（扫描磁盘/Steam 库） |
+| POST | `/api/config/install-pz` | 通过 SteamCMD 自动安装服务器（Windows/Linux） |
+| GET | `/api/config/install-status` | 安装进度/实时日志 |
+
 ---
 
 ## 项目结构
@@ -207,16 +220,27 @@ pz-server-panel/
 │   ├── auth.js                # 登录/会话管理 API
 │   ├── server.js              # 服务器启停/状态 API
 │   ├── players.js             # 玩家管理 API
-│   ├── config.js              # 配置文件编辑 API
+│   ├── config.js              # 配置文件编辑/安装 API
 │   ├── mods.js                # Mod 管理 API
 │   ├── logs.js                # 日志查看 API
-│   └── backups.js             # 备份管理 API
+│   ├── backups.js             # 备份管理 API
+│   └── files.js               # 文件管理 API
 └── public/
     ├── index.html              # 主管理面板
     ├── login.html              # 登录页面
+    ├── config.html             # 配置文件页
+    ├── files.html              # 文件管理页
+    ├── players.html            # 玩家管理页
+    ├── mods.html               # Mod 管理页
+    ├── map.html                # 地图页
+    ├── logs.html               # 日志查看页
+    ├── backups.html            # 备份管理页
+    ├── settings.html           # 系统设置页
     ├── bg.jpg                  # 背景图片
     ├── css/style.css           # 样式表
-    └── js/app.js               # 前端应用逻辑
+    └── js/
+        ├── shared.js           # 共享工具（API/弹窗/Toast）
+        └── pages/              # 各页面前端逻辑
 ```
 
 ---

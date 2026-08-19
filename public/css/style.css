@@ -1,5 +1,5 @@
 /* ============================================
-   PZ Server Panel - ��͸������
+   PZ Server Panel - ��͸������
    ============================================ */
 
 :root {
@@ -140,7 +140,6 @@ a:hover { color: var(--primary); }
 .card-header h3 { font-size: 0.95rem; font-weight: 600; }
 .card-body { padding: 22px; }
 
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 28px; }
 .stat-card { backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); background: rgba(0,0,0,0.30); border: 1px solid var(--glass-border); border-radius: var(--border-radius); padding: 22px; display: flex; align-items: flex-start; gap: 18px; transition: var(--transition); }
 .stat-card:hover { border-color: var(--glass-border-hover); transform: translateY(-4px); background: rgba(0,0,0,0.30); }
 .stat-icon { width: 48px; height: 48px; border-radius: var(--border-radius); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -239,8 +238,365 @@ table tbody tr:hover { background: var(--glass-bg-hover); }
 .toast { padding: 14px 22px; border-radius: var(--border-radius); font-size: 0.85rem; font-weight: 500; animation: toastIn 0.3s ease; box-shadow: 0 8px 30px rgba(0,0,0,0.30); border: 1px solid rgba(255,255,255,0.02); max-width: 380px; display: flex; align-items: center; gap: 10px; }
 @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
 
+/* ============================================
+   文件列表 (日志查看 / 文件浏览器通用)
+   ============================================ */
+.file-list { list-style: none; margin: 0; padding: 0; }
+.file-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.02); transition: var(--transition); }
+.file-list li:last-child { border-bottom: none; }
+.file-list li:hover { background: var(--glass-bg-hover); }
+.file-list li .file-name { font-size: 0.85rem; font-weight: 500; color: var(--text-primary); word-break: break-all; }
+.file-list li .file-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+
+/* ============================================
+   文件管理 - 路径栏 / 表格
+   ============================================ */
+.path-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--glass-border); }
+.path-bar .breadcrumb { font-size: 0.82rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.path-bar .breadcrumb a { color: var(--info); cursor: pointer; }
+.path-bar .breadcrumb a:hover { color: var(--primary-light); }
+.path-bar .file-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.table-container { overflow-x: auto; }
+.action-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+
+@media (max-width: 768px) {
+    .path-bar { flex-direction: column; align-items: stretch; }
+    .path-bar .breadcrumb { white-space: normal; word-break: break-all; }
+    .path-bar .file-actions { justify-content: stretch; }
+    .path-bar .file-actions .btn { flex: 1; }
+}
+
+/* ============================================
+   模态框关闭按钮
+   ============================================ */
+.modal-close { background: none; border: none; color: var(--text-muted); font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 4px 10px; border-radius: var(--border-radius-sm); transition: var(--transition); }
+.modal-close:hover { color: var(--text-primary); background: rgba(255,255,255,0.08); }
+
 .visual-config-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 8px 24px; }
 .config-field { break-inside: avoid; }
+
+/* 可视化编辑器增强 */
+.config-search-bar { position: relative; margin-bottom: 16px; }
+.config-search-bar input { width: 100%; padding: 10px 14px 10px 40px; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: var(--border-radius); color: var(--text-primary); font-size: 0.9rem; outline: none; transition: var(--transition); }
+.config-search-bar input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(231,76,60,0.15); }
+.config-search-bar input::placeholder { color: var(--text-muted); }
+.config-search-bar .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); opacity: 0.4; pointer-events: none; }
+.config-search-bar .search-clear { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; padding: 4px 8px; display: none; border-radius: 4px; }
+.config-search-bar .search-clear:hover { background: rgba(255,255,255,0.1); color: var(--text-primary); }
+.config-search-bar .search-clear.visible { display: block; }
+
+.config-category-card { margin-bottom: 16px; }
+.config-category-card .card-header { cursor: pointer; user-select: none; }
+.config-category-card .card-header:hover { background: var(--glass-bg-hover); }
+.config-category-card .card-header .collapse-icon { transition: transform 0.2s ease; opacity: 0.5; }
+.config-category-card .card-header .collapse-icon.collapsed { transform: rotate(-90deg); }
+.config-category-card .card-body.collapsed { display: none; }
+
+.config-field { position: relative; padding: 10px 12px; border-radius: var(--border-radius-sm); transition: var(--transition); border: 1px solid transparent; }
+.config-field:hover { background: rgba(255,255,255,0.03); border-color: var(--glass-border); }
+.config-field.field-modified { border-color: var(--warning); background: rgba(253,203,110,0.05); }
+.config-field.field-not-in-file { opacity: 0.5; }
+.config-field .field-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.config-field .field-label { font-size: 0.85rem; font-weight: 500; color: var(--text-primary); }
+.config-field .field-label .badge { margin-left: 6px; font-size: 0.6rem; vertical-align: middle; }
+.config-field .field-desc { font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px; line-height: 1.4; }
+.config-field .field-control { display: flex; align-items: center; gap: 8px; }
+.config-field .field-control input[type="text"],
+.config-field .field-control input[type="password"],
+.config-field .field-control input[type="number"] { padding: 8px 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem; outline: none; transition: var(--transition); }
+.config-field .field-control input[type="text"]:focus,
+.config-field .field-control input[type="password"]:focus,
+.config-field .field-control input[type="number"]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(231,76,60,0.12); }
+.config-field .field-control input[type="text"] { width: 100%; max-width: 400px; }
+.config-field .field-control input[type="password"] { width: 100%; max-width: 300px; }
+.config-field .field-control input[type="number"] { width: 120px; }
+.config-field .field-control select { width: auto; min-width: 150px; padding: 8px 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem; outline: none; cursor: pointer; }
+.config-field .field-control select:focus { border-color: var(--primary); }
+.config-field .field-control textarea { width: 100%; min-height: 60px; padding: 8px 12px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem; outline: none; resize: vertical; font-family: inherit; }
+.config-field .field-control textarea:focus { border-color: var(--primary); }
+.config-field .field-reset { flex-shrink: 0; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; padding: 4px 8px; border-radius: 4px; opacity: 0; transition: var(--transition); white-space: nowrap; }
+.config-field:hover .field-reset { opacity: 0.5; }
+.config-field .field-reset:hover { opacity: 1; background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.config-field .field-reset.visible { opacity: 0.6; }
+
+.config-empty-filter { text-align: center; padding: 40px; color: var(--text-muted); }
+.config-empty-filter svg { margin-bottom: 12px; opacity: 0.3; }
+
+/* ============================================
+   配置文件 - 可视化编辑器工具栏
+   ============================================ */
+.config-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 14px 20px;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius);
+    margin-bottom: 20px;
+    backdrop-filter: var(--glass-blur);
+}
+.config-file-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.config-file-selector label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+.config-file-selector select {
+    padding: 8px 14px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-sm);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    outline: none;
+    cursor: pointer;
+    min-width: 200px;
+    transition: var(--transition);
+}
+.config-file-selector select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(231,76,60,0.12);
+}
+.config-file-selector select option {
+    background: #1a1a2e;
+    color: var(--text-primary);
+}
+.config-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* 配置字段样式 */
+.config-field-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+.config-field-label .badge-sm {
+    font-size: 0.6rem;
+    padding: 1px 6px;
+    vertical-align: middle;
+}
+.config-field-desc {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    line-height: 1.4;
+}
+.config-field-input {
+    margin-top: 2px;
+}
+.config-field-unset {
+    opacity: 0.5;
+}
+.config-field-unset:hover {
+    opacity: 0.8;
+}
+
+/* 卡片头部徽章组 */
+.card-header-badges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.card-header-badges .badge {
+    font-size: 0.68rem;
+}
+
+/* 保存栏 */
+.config-save-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    background: rgba(10,10,26,0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    margin-top: 24px;
+    margin-bottom: 48px;
+    position: sticky;
+    bottom: 40px;
+    z-index: 10;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .config-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .config-file-selector {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .config-file-selector select {
+        min-width: unset;
+        width: 100%;
+    }
+    .config-actions {
+        justify-content: stretch;
+    }
+    .config-actions .btn {
+        flex: 1;
+    }
+    .config-save-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.02); border-radius: 3px; }
+
+
+
+@keyframes rainbowFlow{0%{background-position:0% center}100%{background-position:200% center}}
+.page-content{padding-bottom:40px}
+.page-content{padding:24px 24px 48px}
+
+/* ============================================
+   自适应卡片布局
+   ============================================ */
+.card-responsive { width: 100% !important; }
+.card-full { width: 100% !important; }
+
+/* 仪表盘统计网格 - 自适应 */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 28px; }
+
+/* 双列 flex 布局 - 自适应 */
+.flex-row { display: flex; gap: 16px; align-items: stretch; }
+.flex-row .card { flex: 1; min-width: 0; }
+.flex-row .card.flex-sidebar { flex: 0 0 280px; }
+.flex-row .card.flex-main { flex: 2; }
+
+@media (max-width: 1024px) {
+    .flex-row { flex-direction: column; }
+    .flex-row .card.flex-sidebar { flex: none; width: 100% !important; }
+    .flex-row .card.flex-main { flex: none; width: 100% !important; }
+    .flex-row .card { width: 100% !important; }
+}
+
+@media (max-width: 640px) {
+    .stats-grid { grid-template-columns: 1fr; }
+    .page-content { padding: 16px 12px 48px; }
+    .card-header { padding: 12px 16px; }
+    .card-body { padding: 16px; }
+    .console-input-area { flex-direction: column; }
+    .console-input-area input { width: 100%; }
+    .console-input-area button { width: 100%; padding: 12px; }
+    .card-header { flex-wrap: wrap; gap: 8px; }
+    .card-header .server-power { flex-wrap: wrap; }
+    .inline-form { flex-direction: column; align-items: stretch; }
+    .inline-form input, .inline-form button { width: 100% !important; min-width: 0 !important; }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .toolbar .search-box { width: 100%; }
+    .toolbar .search-box input { width: 100%; }
+    .mod-grid { grid-template-columns: 1fr; }
+    .visual-config-grid { grid-template-columns: 1fr; }
+}
+
+/* ============================================
+   搜索下拉框 (Item Picker)
+   ============================================ */
+.search-dropdown {
+    position: relative;
+    width: 100%;
+}
+.search-dropdown input {
+    width: 100%;
+    padding: 10px 14px;
+    background: rgba(0,0,0,0.15);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    outline: none;
+    box-sizing: border-box;
+}
+.search-dropdown input:focus {
+    border-color: var(--primary);
+}
+.search-dropdown .dropdown-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 280px;
+    overflow-y: auto;
+    background: var(--card-bg, #1a1a2e);
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.1));
+    border-radius: 0 0 8px 8px;
+    z-index: 1000;
+    display: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.search-dropdown .dropdown-list.show {
+    display: block;
+}
+.search-dropdown .dropdown-item {
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    transition: background 0.15s;
+}
+.search-dropdown .dropdown-item:last-child {
+    border-bottom: none;
+}
+.search-dropdown .dropdown-item:hover,
+.search-dropdown .dropdown-item.active {
+    background: rgba(0,150,255,0.15);
+    color: var(--primary, #0096ff);
+}
+.search-dropdown .dropdown-item .item-id {
+    font-weight: 500;
+}
+.search-dropdown .dropdown-item .item-module {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-left: 8px;
+}
+.search-dropdown .dropdown-empty {
+    padding: 12px 14px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+.search-dropdown .selected-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(0,150,255,0.12);
+    border: 1px solid rgba(0,150,255,0.3);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--primary, #0096ff);
+    margin-top: 6px;
+}
+.search-dropdown .selected-item .remove-item {
+    cursor: pointer;
+    opacity: 0.6;
+    font-size: 0.9rem;
+}
+.search-dropdown .selected-item .remove-item:hover {
+    opacity: 1;
+}

@@ -72,36 +72,7 @@ module.exports = function(serverManager, checkSession) {
         }
     });
 
-    // Get server stats (for dashboard)
-    router.get('/api/server/stats', checkSession, (req, res) => {
-        try {
-            const status = serverManager.getStatus();
-            const logs = serverManager.getLogs(50);
-            // Parse some stats from recent logs
-            const playerHistory = [];
-            for (const log of logs) {
-                const match = log.message.match(/(\d+)\s+players?\s+connected/i);
-                if (match) {
-                    playerHistory.push({
-                        time: log.timestamp,
-                        count: parseInt(match[1])
-                    });
-                }
-            }
-
-            res.json({
-                result: 1,
-                data: {
-                    status,
-                    playerHistory: playerHistory.slice(-20)
-                }
-            });
-        } catch (err) {
-            res.json({ result: 0, message: err.message });
-        }
-    });
-
-    // Get player positions parsed from server logs
+    // Get server stats (for dashboard) — includes system info & game version
     router.get('/api/server/stats', checkSession, (req, res) => {
         try {
             const status = serverManager.getStatus();
@@ -116,13 +87,20 @@ module.exports = function(serverManager, checkSession) {
 
             // System info
             const os = require('os');
+            const cpus = os.cpus();
+            let totalIdle = 0, totalTick = 0;
+            for (const cpu of cpus) {
+                totalIdle += cpu.times.idle;
+                totalTick += cpu.times.user + cpu.times.nice + cpu.times.sys + cpu.times.idle + cpu.times.irq;
+            }
             const sysInfo = {
                 hostname: os.hostname(),
                 platform: os.platform(),
                 arch: os.arch(),
                 release: os.release(),
-                cpuModel: os.cpus().length > 0 ? os.cpus()[0].model.trim() : '',
-                cpuCores: os.cpus().length,
+                cpuModel: cpus.length > 0 ? cpus[0].model.trim() : '',
+                cpuCores: cpus.length,
+                cpuUsage: cpus.length > 0 ? ((1 - totalIdle / totalTick) * 100).toFixed(1) : 0,
                 totalMem: os.totalmem(),
                 freeMem: os.freemem(),
                 uptime: os.uptime(),

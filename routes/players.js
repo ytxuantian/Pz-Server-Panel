@@ -240,5 +240,15 @@ module.exports = function(serverManager, checkSession) {
             });
     });
 
+    // Get item list from game files
+    router.get('/api/players/items', checkSession, (req, res) => {
+        try {
+            const items = serverManager.getItemList();
+            res.json({ result: 1, data: { items } });
+        } catch (err) {
+            res.json({ result: 0, message: err.message });
+        }
+    });
+
     return router;
 };

@@ -809,6 +809,78 @@ class ServerManager {
             this._statsInterval = null;
         }
     }
+
+    /**
+     * Get item list from PZ game files (media/scripts/)
+     * Returns array of { id: "Base.M249", module: "Base", name: "M249" }
+     */
+    getItemList() {
+        const items = [];
+        const scriptsDir = path.join(this.config.installPath, 'media', 'scripts');
+        
+        if (!fs.existsSync(scriptsDir)) {
+            return items;
+        }
+
+        try {
+            const files = fs.readdirSync(scriptsDir);
+            for (const file of files) {
+                if (!file.endsWith('.txt')) continue;
+                const filePath = path.join(scriptsDir, file);
+                try {
+                    const content = fs.readFileSync(filePath, 'utf8');
+                    this._parseScriptItems(content, items);
+                } catch (e) {
+                    // Skip unreadable files
+                }
+            }
+        } catch (e) {
+            // Scripts directory might not exist
+        }
+
+        // Sort alphabetically
+        items.sort((a, b) => a.id.localeCompare(b.id));
+        return items;
+    }
+
+    _parseScriptItems(content, items) {
+        // Parse item definitions from script content
+        // Format: module Base { items { item M249 { ... } } }
+        // Combined item ID = Module.ItemName
+        
+        // Find all module blocks
+        const moduleRegex = /module\s+(\w+)\s*\{/g;
+        let moduleMatch;
+        
+        while ((moduleMatch = moduleRegex.exec(content)) !== null) {
+            const moduleName = moduleMatch[1];
+            const moduleStart = moduleMatch.index + moduleMatch[0].length;
+            let depth = 1;
+            let i = moduleStart;
+            while (i < content.length && depth > 0) {
+                if (content[i] === '{') depth++;
+                else if (content[i] === '}') depth--;
+                i++;
+            }
+            const moduleContent = content.substring(moduleStart, i - 1);
+            
+            // Find item definitions within this module
+            const itemRegex = /^\s*item\s+(\w+)\s*$/gm;
+            let itemMatch;
+            while ((itemMatch = itemRegex.exec(moduleContent)) !== null) {
+                const itemName = itemMatch[1];
+                const fullId = moduleName + '.' + itemName;
+                // Avoid duplicates
+                if (!items.some(it => it.id === fullId)) {
+                    items.push({
+                        id: fullId,
+                        module: moduleName,
+                        name: itemName
+                    });
+                }
+            }
+        }
+    }
 }
 
 module.exports = ServerManager;

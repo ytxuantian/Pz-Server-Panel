@@ -52,7 +52,6 @@ const API = {
 // ============================================
 const PAGES = {
     dashboard: { title: '仪表盘', render: renderDashboard },
-    server: { title: '服务器控制', render: renderServerControl },
     players: { title: '玩家管理', render: renderPlayers },
     config: { title: '配置文件', render: renderConfig },
     mods: { title: 'Mod 管理', render: renderMods },
@@ -65,6 +64,7 @@ const PAGES = {
 let currentPage = 'dashboard';
 let statusCheckInterval = null;
 let consoleRefreshInterval = null;
+let statsRefreshInterval = null;
 
 // ============================================
 // 初始化
@@ -121,10 +121,16 @@ function navigateTo(page, navItem) {
     const content = document.getElementById('pageContent');
     content.innerHTML = '<div class="page-loading"><svg class="spinner" viewBox="0 0 24 24" width="32" height="32"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round"/></svg><span>加载中...</span></div>';
     
-    // Stop console refresh if leaving server page
-    if (page !== 'server' && consoleRefreshInterval) {
-        clearInterval(consoleRefreshInterval);
-        consoleRefreshInterval = null;
+    // Stop console & stats refresh if leaving dashboard
+    if (page !== 'dashboard') {
+        if (consoleRefreshInterval) {
+            clearInterval(consoleRefreshInterval);
+            consoleRefreshInterval = null;
+        }
+        if (statsRefreshInterval) {
+            clearInterval(statsRefreshInterval);
+            statsRefreshInterval = null;
+        }
     }
     
     setTimeout(() => PAGES[page].render(), 100);
@@ -188,6 +194,10 @@ function logout() {
         clearInterval(consoleRefreshInterval);
         consoleRefreshInterval = null;
     }
+    if (statsRefreshInterval) {
+        clearInterval(statsRefreshInterval);
+        statsRefreshInterval = null;
+    }
     sessionStorage.removeItem('sessionKey');
     sessionStorage.removeItem('username');
     window.location.href = '/login';
@@ -230,14 +240,12 @@ async function renderDashboard() {
         return;
     }
 
-    const { status, playerHistory, system, gameVersion } = data.data;
+    const { status, system, gameVersion } = data.data;
     const isRunning = status.running;
 
     // Format memory
     const formatMem = (bytes) => bytes ? (bytes / 1024 / 1024 / 1024).toFixed(1) + ' GB' : '-';
     const memUsage = system ? ((1 - system.freeMem / system.totalMem) * 100).toFixed(0) : 0;
-    const platformMap = { 'win32': 'Windows', 'linux': 'Linux', 'darwin': 'macOS' };
-    const osName = system ? (platformMap[system.platform] || system.platform) + ' ' + system.arch : '-';
 
     content.innerHTML = `
         <div class="page-header">
@@ -245,82 +253,7 @@ async function renderDashboard() {
             <p>Project Zomboid 服务器概览</p>
         </div>
 
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon ${isRunning ? 'success' : 'warning'}">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
-                        <circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/>
-                    </svg>
-                </div>
-                <div class="stat-info">
-                    <div class="stat-label">服务器状态</div>
-                    <div class="stat-value">${isRunning ? '运行中' : '已停止'}</div>
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-icon ${isRunning ? 'success' : 'warning'}">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                    </svg>
-                </div>
-                <div class="stat-info">
-                    <div class="stat-label">服务器名</div>
-                    <div class="stat-value" style="font-size:1rem;">${status.serverName || 'servertest'}</div>
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-icon info">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
-                </div>
-                <div class="stat-info">
-                    <div class="stat-label">在线玩家</div>
-                    <div class="stat-value">${isRunning ? (status.stats.players || 0) : '-'}</div>
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-icon primary">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                </div>
-                <div class="stat-info">
-                    <div class="stat-label">运行时间</div>
-                    <div class="stat-value">${isRunning ? formatUptime(status.uptime) : '-'}</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
-            <div class="stat-card">
-                <div class="stat-icon info">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="4" y="4" width="16" height="16" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/>
-                    </svg>
-                </div>
-                <div class="stat-info">
-                    <div class="stat-label">游戏版本</div>
-                    <div class="stat-value" style="font-size:1.1rem;">${gameVersion || '未知'}</div>
-                </div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon warning">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
-                        <circle cx="6" cy="6" r="1"/><circle cx="6" cy="18" r="1"/>
-                    </svg>
-                </div>
-                <div class="stat-info">
-                    <div class="stat-label">操作系统</div>
-                    <div class="stat-value" style="font-size:0.9rem;">${osName}</div>
-                </div>
-            </div>
+        <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));" id="systemStats">
             <div class="stat-card">
                 <div class="stat-icon primary">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
@@ -329,7 +262,8 @@ async function renderDashboard() {
                 </div>
                 <div class="stat-info">
                     <div class="stat-label">CPU</div>
-                    <div class="stat-value" style="font-size:0.9rem;">${system ? system.cpuCores + ' 核' : '-'}</div>
+                    <div class="stat-value" style="font-size:1rem;" id="cpuValue">${system ? system.cpuUsage + '%' : '-'}</div>
+                    <div class="progress-bar" style="margin-top:6px;"><div class="progress-fill ${system && system.cpuUsage > 80 ? 'danger' : system && system.cpuUsage > 60 ? 'warning' : 'success'}" style="width:${system ? system.cpuUsage : 0}%;" id="cpuBar"></div></div>
                 </div>
             </div>
             <div class="stat-card">
@@ -340,83 +274,30 @@ async function renderDashboard() {
                 </div>
                 <div class="stat-info">
                     <div class="stat-label">内存使用</div>
-                    <div class="stat-value" style="font-size:1rem;">${formatMem(system ? system.totalMem - system.freeMem : 0)} / ${formatMem(system ? system.totalMem : 0)}</div>
-                    <div class="progress-bar" style="margin-top:6px;"><div class="progress-fill ${memUsage > 80 ? 'danger' : memUsage > 60 ? 'warning' : 'success'}" style="width:${memUsage}%;"></div></div>
+                    <div class="stat-value" style="font-size:1rem;" id="memValue">${formatMem(system ? system.totalMem - system.freeMem : 0)} / ${formatMem(system ? system.totalMem : 0)}</div>
+                    <div class="progress-bar" style="margin-top:6px;"><div class="progress-fill ${memUsage > 80 ? 'danger' : memUsage > 60 ? 'warning' : 'success'}" style="width:${memUsage}%;" id="memBar"></div></div>
                 </div>
             </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header">
-                <h3>快速操作</h3>
-            </div>
-            <div class="card-body">
-                <div class="server-controls">
-                    ${isRunning ? `
-                        <button class="btn btn-danger" onclick="stopServer()">停止服务器</button>
-                        <button class="btn btn-warning" onclick="restartServer()">重启服务器</button>
-                        <button class="btn btn-info" onclick="saveAll()">保存世界</button>
-                    ` : `
-                        <button class="btn btn-success" onclick="startServer()">启动服务器</button>
-                    `}
-                    <button class="btn btn-secondary" onclick="navigateTo('players')">查看玩家</button>
-                    <button class="btn btn-secondary" onclick="navigateTo('logs')">查看日志</button>
+            <div class="stat-card">
+                <div class="stat-icon info">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    </svg>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-label">安装路径</div>
+                    <div class="stat-value" style="font-size:0.75rem;word-break:break-all;" id="pathValue">${status.installPath || '-'}</div>
                 </div>
             </div>
-        </div>
-    `;
-}
-
-// ============================================
-// 页面: 服务器控制
-// ============================================
-async function renderServerControl() {
-    const content = document.getElementById('pageContent');
-    const data = await API.get('/api/server/status');
-    const status = data.result === 1 ? data.data : { running: false };
-    const isRunning = status.running;
-
-    content.innerHTML = `
-        <div class="page-header">
-            <h2>服务器控制</h2>
-            <p>启动、停止和管理 Project Zomboid 服务器</p>
-        </div>
-
-        <div class="card">
-            <div class="card-header">
-                <h3>服务器状态</h3>
-                <div>
-                    <span class="badge ${isRunning ? 'badge-success' : 'badge-danger'}">${isRunning ? '运行中' : '已停止'}</span>
+            <div class="stat-card">
+                <div class="stat-icon info">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="4" y="4" width="16" height="16" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/>
+                    </svg>
                 </div>
-            </div>
-            <div class="card-body">
-                <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
-                    <div class="stat-card">
-                        <div class="stat-info">
-                            <div class="stat-label">进程 PID</div>
-                            <div class="stat-value" style="font-size:1rem;">${isRunning ? status.pid : '-'}</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-info">
-                            <div class="stat-label">运行时间</div>
-                            <div class="stat-value" style="font-size:1rem;">${isRunning ? formatUptime(status.uptime) : '-'}</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-info">
-                            <div class="stat-label">安装路径</div>
-                            <div class="stat-value" style="font-size:0.8rem;word-break:break-all;">${status.installPath || '-'}</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="server-controls" style="margin-top:16px;">
-                    ${isRunning ? `
-                        <button class="btn btn-danger" onclick="stopServer()">停止服务器</button>
-                        <button class="btn btn-warning" onclick="restartServer()">重启服务器</button>
-                    ` : `
-                        <button class="btn btn-success" onclick="startServer()">启动服务器</button>
-                    `}
+                <div class="stat-info">
+                    <div class="stat-label">游戏版本</div>
+                    <div class="stat-value" style="font-size:1rem;" id="versionValue">${status.installPath ? (gameVersion || '未知') : '未安装'}</div>
                 </div>
             </div>
         </div>
@@ -437,12 +318,16 @@ async function renderServerControl() {
                 </div>
             </div>
         </div>
-    `;
+        `;
 
     // Start console refresh
     if (consoleRefreshInterval) clearInterval(consoleRefreshInterval);
     consoleRefreshInterval = setInterval(refreshConsole, 2000);
     setTimeout(refreshConsole, 200);
+
+    // Start system stats refresh (every 3s)
+    if (statsRefreshInterval) clearInterval(statsRefreshInterval);
+    statsRefreshInterval = setInterval(refreshSystemStats, 3000);
 
     // Enter key for console
     document.getElementById('consoleInput')?.addEventListener('keydown', function(e) {
@@ -450,6 +335,46 @@ async function renderServerControl() {
     });
 }
 
+// ============================================
+// 系统信息刷新（CPU、内存每 3 秒更新）
+// ============================================
+async function refreshSystemStats() {
+    const data = await API.get('/api/server/stats');
+    if (data.result !== 1) return;
+
+    const { status, system, gameVersion } = data.data;
+    const formatMem = (bytes) => bytes ? (bytes / 1024 / 1024 / 1024).toFixed(1) + ' GB' : '-';
+
+    // CPU
+    const cpuEl = document.getElementById('cpuValue');
+    const cpuBar = document.getElementById('cpuBar');
+    if (cpuEl && system) {
+        const pct = system.cpuUsage;
+        cpuEl.textContent = pct + '%';
+        if (cpuBar) {
+            cpuBar.style.width = pct + '%';
+            cpuBar.className = 'progress-fill ' + (pct > 80 ? 'danger' : pct > 60 ? 'warning' : 'success');
+        }
+    }
+
+    // Memory
+    const memEl = document.getElementById('memValue');
+    const memBar = document.getElementById('memBar');
+    if (memEl && system) {
+        const used = formatMem(system.totalMem - system.freeMem);
+        const total = formatMem(system.totalMem);
+        const pct = system.totalMem ? ((1 - system.freeMem / system.totalMem) * 100).toFixed(0) : 0;
+        memEl.textContent = used + ' / ' + total;
+        if (memBar) {
+            memBar.style.width = pct + '%';
+            memBar.className = 'progress-fill ' + (pct > 80 ? 'danger' : pct > 60 ? 'warning' : 'success');
+        }
+    }
+}
+
+// ============================================
+// 控制台
+// ============================================
 async function refreshConsole() {
     const output = document.getElementById('consoleOutput');
     if (!output) return;
@@ -485,50 +410,8 @@ async function sendConsoleCommand() {
 }
 
 // ============================================
-// 服务器操作
+// 保存世界（玩家页面也使用）
 // ============================================
-async function startServer() {
-    const btn = event?.target;
-    if (btn) btn.disabled = true;
-    
-    const data = await API.post('/api/server/start');
-    if (data.result === 1) {
-        showToast('服务器启动成功', 'success');
-        navigateTo('server');
-    } else {
-        showToast(data.message || '启动失败', 'error');
-        if (btn) btn.disabled = false;
-    }
-}
-
-async function stopServer() {
-    if (!confirm('确定要停止服务器吗？所有在线玩家将被断开连接。')) return;
-    
-    const data = await API.post('/api/server/stop');
-    if (data.result === 1) {
-        showToast('服务器已停止', 'success');
-        navigateTo('server');
-    } else {
-        showToast(data.message || '停止失败', 'error');
-    }
-}
-
-async function restartServer() {
-    if (!confirm('确定要重启服务器吗？所有在线玩家将被断开连接。')) return;
-    
-    const btn = event?.target;
-    if (btn) btn.disabled = true;
-    
-    showToast('正在重启服务器...', 'info');
-    const data = await API.post('/api/server/restart');
-    if (data.result === 1) {
-        showToast('服务器重启中', 'success');
-    } else {
-        showToast(data.message || '重启失败', 'error');
-        if (btn) btn.disabled = false;
-    }
-}
-
 async function saveAll() {
     const data = await API.post('/api/players/saveall');
     if (data.result === 1) {
@@ -718,52 +601,43 @@ async function banPlayer() {
 async function renderConfig() {
     const content = document.getElementById('pageContent');
     const listData = await API.get('/api/config/list');
-
     const files = listData.result === 1 ? listData.data : [];
 
     content.innerHTML = `
         <div class="page-header">
             <h2>配置文件</h2>
-            <p>编辑 Project Zomboid 服务器配置文件</p>
+            <p>可视化编辑 Project Zomboid 服务器配置，修改后需重启服务器生效</p>
         </div>
 
         <div class="alert alert-warning">
             ⚠ 修改配置文件后需重启服务器才能生效。建议修改前先创建备份。
         </div>
 
-        <div class="card">
-            <div class="card-header">
-                <h3>选择配置文件</h3>
+        <div class="config-toolbar">
+            <div class="config-file-selector">
+                <label>📄 选择文件：</label>
+                <select id="configFileSelect" onchange="onConfigFileChange()">
+                    ${files.map(f => `<option value="${f.name}">${f.name}</option>`).join('')}
+                </select>
             </div>
-            <div class="card-body" style="padding:0;">
-                ${files.length > 0 ? `
-                    <ul class="file-list">
-                        ${files.map(f => `
-                            <li onclick="loadVisualConfig('${f.name}')">
-                                <div>
-                                    <div class="file-name">${f.name}</div>
-                                    <div class="file-meta">${formatSize(f.size)} | ${new Date(f.modified).toLocaleString()}</div>
-                                </div>
-                                <span class="badge badge-info">可视化编辑</span>
-                            </li>
-                        `).join('')}
-                    </ul>
-                ` : `
-                    <div class="empty-state" style="padding:40px;">
-                        <h3>未找到配置文件</h3>
-                        <p>请确保服务器已安装并配置正确</p>
-                    </div>
-                `}
+            <div class="config-actions">
+                <button class="btn btn-secondary btn-sm" onclick="switchToRawEditor()" id="switchToRawBtn">📝 文本编辑</button>
+                <button class="btn btn-success" onclick="saveVisualConfig()">💾 保存所有设置</button>
             </div>
         </div>
 
-        <div id="visualConfigContainer"></div>
+        <div id="visualConfigContainer">
+            <div class="page-loading" style="padding:40px;">
+                <svg class="spinner" viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round"/></svg>
+                <span>加载配置...</span>
+            </div>
+        </div>
 
         <div class="card" id="configEditorCard" style="display:none;">
             <div class="card-header">
                 <h3 id="configFileName">编辑文件</h3>
                 <div>
-                    <button class="btn btn-secondary btn-sm" onclick="switchToVisual()">切换到可视化</button>
+                    <button class="btn btn-secondary btn-sm" onclick="switchToVisual()">🎨 切换到可视化</button>
                     <button class="btn btn-success btn-sm" onclick="saveConfigFile()">保存</button>
                 </div>
             </div>
@@ -772,6 +646,19 @@ async function renderConfig() {
             </div>
         </div>
     `;
+
+    // Auto-load first config file
+    if (files.length > 0) {
+        loadVisualConfig(files[0].name);
+    }
+}
+
+function onConfigFileChange() {
+    const sel = document.getElementById('configFileSelect');
+    if (sel && sel.value) {
+        document.getElementById('configEditorCard').style.display = 'none';
+        loadVisualConfig(sel.value);
+    }
 }
 
 let currentConfigFile = null;
@@ -779,6 +666,10 @@ let currentVisualConfig = [];
 
 async function loadVisualConfig(filename) {
     currentConfigFile = filename;
+    // Sync file selector
+    const sel = document.getElementById('configFileSelect');
+    if (sel) sel.value = filename;
+    
     const container = document.getElementById('visualConfigContainer');
     container.innerHTML = '<div class="page-loading" style="padding:40px;"><svg class="spinner" viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round"/></svg><span>加载配置...</span></div>';
 
@@ -793,16 +684,36 @@ async function loadVisualConfig(filename) {
     const { categories, raw } = data.data;
     currentVisualConfig = [];
 
+    // Category icons
+    const categoryIcons = {
+        '基本设置': '🏠',
+        '网络设置': '🌐',
+        '游戏设置': '🎮',
+        '僵尸设置': '🧟',
+        '战利品设置': '📦',
+        'PVP 设置': '⚔️',
+        '经济设置': '💰',
+        '管理设置': '🔧',
+        '其他': '📋'
+    };
+
     let html = '';
     const categoryOrder = ['基本设置', '网络设置', '游戏设置', '僵尸设置', '战利品设置', 'PVP 设置', '经济设置', '管理设置', '其他'];
 
     for (const cat of categoryOrder) {
         if (!categories[cat] || categories[cat].length === 0) continue;
+        const icon = categoryIcons[cat] || '📋';
+        const configCount = categories[cat].filter(f => !f.notInFile).length;
+        const unsetCount = categories[cat].filter(f => f.notInFile).length;
+
         html += `
             <div class="card">
                 <div class="card-header">
-                    <h3>${cat}</h3>
-                    <span class="badge badge-info">${categories[cat].length} 项</span>
+                    <h3>${icon} ${cat}</h3>
+                    <div class="card-header-badges">
+                        <span class="badge badge-info">${configCount} 项</span>
+                        ${unsetCount > 0 ? `<span class="badge badge-warning">${unsetCount} 项未配置</span>` : ''}
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="visual-config-grid">`;
@@ -813,14 +724,17 @@ async function loadVisualConfig(filename) {
             const inputId = `cfg_${field.key}`;
             currentVisualConfig.push(field);
 
-            html += `<div class="config-field" style="margin-bottom:12px;${field.notInFile ? 'opacity:0.5;' : ''}">
-                <label for="${inputId}" style="display:block;margin-bottom:4px;font-size:0.85rem;font-weight:500;color:var(--text-primary);">
-                    ${m.label || field.key}
-                    ${field.notInFile ? '<span class="badge badge-warning" style="font-size:0.6rem;">未配置</span>' : ''}
-                </label>
-                ${m.desc ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:6px;">${m.desc}</div>` : ''}
-                ${renderConfigField(inputId, m, val, field.key)}
-            </div>`;
+            html += `
+                <div class="config-field ${field.notInFile ? 'config-field-unset' : ''}">
+                    <label for="${inputId}" class="config-field-label">
+                        <span>${m.label || field.key}</span>
+                        ${field.notInFile ? '<span class="badge badge-warning badge-sm">未配置</span>' : ''}
+                    </label>
+                    ${m.desc ? `<div class="config-field-desc">${m.desc}</div>` : ''}
+                    <div class="config-field-input">
+                        ${renderConfigField(inputId, m, val, field.key)}
+                    </div>
+                </div>`;
         }
 
         html += `</div></div></div>`;
@@ -829,23 +743,25 @@ async function loadVisualConfig(filename) {
     // Add remaining categories not in the predefined order
     for (const [cat, fields] of Object.entries(categories)) {
         if (categoryOrder.includes(cat)) continue;
-        html += `<div class="card"><div class="card-header"><h3>${cat}</h3></div><div class="card-body">`;
+        html += `<div class="card"><div class="card-header"><h3>${cat}</h3></div><div class="card-body"><div class="visual-config-grid">`;
         for (const field of fields) {
             const m = field.meta;
             const inputId = `cfg_${field.key}`;
-            html += `<div class="config-field" style="margin-bottom:12px;">
-                <label for="${inputId}" style="display:block;margin-bottom:4px;font-size:0.85rem;font-weight:500;">${m.label || field.key}</label>
-                ${m.desc ? `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:6px;">${m.desc}</div>` : ''}
-                ${renderConfigField(inputId, m, field.value, field.key)}
-            </div>`;
+            currentVisualConfig.push(field);
+            html += `
+                <div class="config-field">
+                    <label for="${inputId}" class="config-field-label"><span>${m.label || field.key}</span></label>
+                    ${m.desc ? `<div class="config-field-desc">${m.desc}</div>` : ''}
+                    <div class="config-field-input">${renderConfigField(inputId, m, field.value, field.key)}</div>
+                </div>`;
         }
-        html += `</div></div>`;
+        html += `</div></div></div>`;
     }
 
     html += `
-        <div style="display:flex;gap:10px;margin-bottom:24px;">
-            <button class="btn btn-success" onclick="saveVisualConfig()">保存所有设置</button>
-            <button class="btn btn-secondary" onclick="switchToRawEditor()">切换到文本编辑</button>
+        <div class="config-save-bar">
+            <button class="btn btn-success" onclick="saveVisualConfig()">💾 保存所有设置</button>
+            <button class="btn btn-secondary" onclick="switchToRawEditor()">📝 切换到文本编辑</button>
         </div>
     `;
 
@@ -920,6 +836,10 @@ function switchToVisual() {
 
 async function loadConfigFile(filename) {
     currentConfigFile = filename;
+    // Sync file selector
+    const sel = document.getElementById('configFileSelect');
+    if (sel) sel.value = filename;
+    
     const data = await API.get(`/api/config/read?filename=${filename}`);
     
     if (data.result === 1) {
@@ -1341,40 +1261,14 @@ function openPzMapInNewTab() {
 // ============================================
 async function renderLogs() {
     const content = document.getElementById('pageContent');
-    const logData = await API.get('/api/logs/server?count=200');
     const fileData = await API.get('/api/logs/files');
 
-    const logs = logData.result === 1 ? logData.data : [];
     const files = fileData.result === 1 ? fileData.data.files : [];
 
     content.innerHTML = `
         <div class="page-header">
             <h2>日志查看</h2>
-            <p>查看服务器运行日志和文件日志</p>
-        </div>
-
-        <div class="card">
-            <div class="card-header">
-                <h3>实时日志</h3>
-                <div>
-                    <button class="btn btn-sm btn-secondary" onclick="renderLogs()">刷新</button>
-                    <button class="btn btn-sm btn-danger" onclick="clearLogs()">清空</button>
-                </div>
-            </div>
-            <div class="card-body" style="padding:0;">
-                <div class="console-container">
-                    <div class="console-output" id="logOutput" style="height:300px;">
-                        ${logs.map(log => {
-                            const time = new Date(log.timestamp).toLocaleTimeString();
-                            let level = 'info';
-                            if (log.message.includes('[ERROR]')) level = 'error';
-                            else if (log.message.includes('[WARN]')) level = 'warn';
-                            else if (log.message.includes('[SYSTEM]')) level = 'system';
-                            return `<div class="console-line"><span class="timestamp">${time}</span><span class="level-${level}">${escapeHtml(log.message)}</span></div>`;
-                        }).join('')}
-                    </div>
-                </div>
-            </div>
+            <p>查看服务器历史日志文件</p>
         </div>
 
         <div class="card">
@@ -1402,9 +1296,6 @@ async function renderLogs() {
             </div>
         </div>
     `;
-
-    const logOutput = document.getElementById('logOutput');
-    if (logOutput) logOutput.scrollTop = logOutput.scrollHeight;
 }
 
 async function readLogFile(filename) {
@@ -1432,14 +1323,6 @@ async function readLogFile(filename) {
         '关闭',
         () => {}
     );
-}
-
-async function clearLogs() {
-    const data = await API.post('/api/logs/clear');
-    if (data.result === 1) {
-        showToast('日志已清空', 'success');
-        renderLogs();
-    }
 }
 
 // ============================================
